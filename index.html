@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Batata Thuso Simulator - 3D</title>
+<style>
+  :root{
+    --bg: #eaf3e1;
+    --soil: #8b5a2b;
+    --soil2: #7a492f;
+    --green: #4CAF50;
+    --gold: #f0d264;
+    --shadow: rgba(0,0,0,.25);
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: 'Poppins', system-ui, sans-serif;
+    background: linear-gradient(#eaf3e1 0%, #dbe8d6 100%);
+    color: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .screen { display: none; text-align: center; width: 100%; padding: 20px; }
+  .active { display: block; }
+  button {
+    background: #6fbf73;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 16px;
+    margin: 8px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #2e8b57;
+  }
+  button:hover { transform: translateY(-1px); }
+  h1 { font-size: 38px; margin: 8px 0 4px; }
+  .credits { font-size: 14px; color: #555; margin-bottom: 6px; }
+  .layout { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: start; justify-items: center; }
+
+  /* Cartoonish 3D farm tile */
+  .tile {
+    width: 28px; height: 28px;
+    background: linear-gradient(#a66a3d, #7a4a2a);
+    border-radius: 6px;
+    border: 1px solid #6b4a2a;
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateX(20deg) rotateY(-15deg);
+    box-shadow: 6px 6px 0 0 rgba(0,0,0,.15);
+    cursor: pointer;
+  }
+  .tile:hover { filter: brightness(1.05); }
+  .tile::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -8px;
+    height: 8px;
+    background: linear-gradient(#0000, rgba(0,0,0,.15));
+    border-radius: 0 0 6px 6px;
+    transform: translateZ(-2px);
+    filter: blur(0.2px);
+  }
+  .tile.growing-potato {
+    background: linear-gradient(#f0d264, #e6b34d);
+  }
+  .tile.growing-wheat {
+    background: linear-gradient(#c8c8c8, #a3a3a3);
+  }
+  .tile.ready {
+    background: linear-gradient(#4CAF50, #2e8b57);
+  }
+  .info-box { background: #fff; padding: 12px; border-radius: 12px; margin: 6px; text-align: left; min-width: 230px; }
+
+  /* Farm board with subtle 3D depth */
+  #farm {
+    perspective: 800px;
+    display: grid;
+    grid-template-columns: repeat(var(--size, 5), 28px);
+    gap: 6px;
+    padding: 10px;
+    background: linear-gradient(#f5f5f5, #e5e5e5);
+    border-radius: 12px;
+    box-shadow: inset 0 0 12px rgba(0,0,0,.05);
+  }
+  .farm-wrap { transform-style: preserve-3d; transform: rotateX(0deg); }
+
+  /* Responsive tweaks */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    #farm { justify-items: center; --size: 4; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Title Screen -->
+<div id="titleScreen" class="screen active">
+  <h1>aloo khaoge</h1>
+  <div class="credits">@voice.gaming</div>
+  <h2>Batata Thuso simulator</h2>
+  <button onclick="showMenu()">Play</button>
+</div>
+
+<!-- Main Menu -->
+<div id="mainMenu" class="screen">
+  <h1>Main Menu</h1>
+  <div class="layout" style="grid-auto-flow:column;">
+    <div>
+      <button onclick="startGame1()">Game 1</button>
+    </div>
+    <div>
+      <button disabled>Game 2</button>
+      <div>Coming Soon</div>
+    </div>
+    <div>
+      <button disabled>Game 3</button>
+      <div>Coming Soon</div>
+    </div>
+  </div>
+</div>
+
+<!-- Game 1 (Cartoonish 3D) -->
+<div id="game1" class="screen">
+  <h1>Farm Simulation</h1>
+  <button onclick="backToMenu()">⬅ Back</button>
+
+  <div class="layout" style="--size:5;">
+    <!-- Left: Farm grid with 3D look -->
+    <div class="farm-wrap" aria-label="Farm grid">
+      <div id="farm" style="grid-template-columns: repeat(5, 28px);"></div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button onclick="upgradeFarm()">Upgrade Farm (Cost: <span id='farmCost'>40</span>💵)</button>
+        <button onclick="upgradeShed()">Upgrade Shed (Cost: <span id='shedCost'>20</span>💵)</button>
+      </div>
+    </div>
+
+    <!-- Center: Info -->
+    <div class="info-box" style="min-width:260px;">
+      <div>💵 Money: <span id="moneyDisplay">0</span></div>
+      <div>Storage: Potatoes <span id="potatoCount">0</span>/<span id="potatoCap">10</span></div>
+      <div>Wheat <span id="wheatCount">0</span>/<span id="wheatCap">10</span></div>
+      <div style="margin-top:6px;">
+        Current Crop:
+        <div style="margin-top:6px;">
+          <button onclick="selectCrop('potato')">🥔 Potato</button>
+          <button onclick="selectCrop('wheat')">🌾 Wheat</button>
+        </div>
+        <div>Selected: <span id="selectedCrop">🥔 Potato</span></div>
+      </div>
+    </div>
+
+    <!-- Right: Shop -->
+    <div class="info-box" style="min-width:200px;">
+      <h3>Shop</h3>
+      <button onclick="buySeed('potato')">Buy Potato Seed (1💵)</button>
+      <button onclick="buySeed('wheat')">Buy Wheat Seed (1💵)</button>
+      <div>Seeds: 🥔 <span id="potatoSeeds">0</span> | 🌾 <span id="wheatSeeds">0</span></div>
+      <button onclick="sellAll()">Sell All (2💵 each)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Data Model
+let player = JSON.parse(localStorage.getItem("batataSave")) || {
+  money: 10,
+  farmSize: 5,
+  shed: { potato: 0, wheat: 0, capPotato: 10, capWheat: 10 },
+  seeds: { potato: 2, wheat: 2 },
+  upgrades: { farmLevel: 0, shedLevel: 0 },
+};
+let selectedCrop = "potato";
+let upgradeCosts = { farm: 40, shed: 20 };
+let crops = []; // {type:'potato',timeLeft:60,index:0}
+
+// Save
+function saveGame(){ localStorage.setItem("batataSave", JSON.stringify(player)); }
+
+// UI Init
+function showMenu(){
+  document.getElementById("titleScreen").classList.remove("active");
+  document.getElementById("mainMenu").classList.add("active");
+}
+function startGame1(){
+  document.getElementById("mainMenu").classList.remove("active");
+  document.getElementById("game1").classList.add("active");
+  renderFarm();
+  updateUI();
+}
+function backToMenu(){
+  saveGame();
+  document.getElementById("game1").classList.remove("active");
+  document.getElementById("mainMenu").classList.add("active");
+}
+
+// UI Update
+function updateUI(){
+  document.getElementById("moneyDisplay").textContent = player.money;
+  document.getElementById("potatoCount").textContent = player.shed.potato;
+  document.getElementById("wheatCount").textContent = player.shed.wheat;
+  document.getElementById("potatoCap").textContent = player.shed.capPotato;
+  document.getElementById("wheatCap").textContent = player.shed.capWheat;
+  document.getElementById("potatoSeeds").textContent = player.seeds.potato;
+  document.getElementById("wheatSeeds").textContent = player.seeds.wheat;
+  document.getElementById("farmCost").textContent = upgradeCosts.farm;
+  document.getElementById("shedCost").textContent = upgradeCosts.shed;
+  document.getElementById("selectedCrop").textContent = selectedCrop === "potato" ? "🥔 Potato" : "🌾 Wheat";
+}
+
+// Crop selection
+function selectCrop(type){
+  selectedCrop = type;
+  updateUI();
+}
+
+// Farm Grid (3D-ish tiles)
+function renderFarm(){
+  const farm = document.getElementById("farm");
+  farm.innerHTML = "";
+  const size = player.farmSize;
+  farm.style.setProperty('--size', size);
+  const total = size * 5; // keep 5 columns visually for 3D layout; adjust by CSS if needed
+  // We'll render a 5-column visual grid; for simplicity use 5 columns
+  for(let i=0;i<total;i++){
+    const tile = document.createElement("div");
+    tile.className = "tile";
+    tile.dataset.index = i;
+    tile.onclick = () => plantCrop(i);
+    const timer = document.createElement("span");
+    timer.style.position="absolute"; timer.style.bottom="-14px"; timer.style.left="50%";
+    timer.style.transform="translateX(-50%)"; timer.style.fontSize="10px"; timer.style.color="#333";
+    tile.appendChild(timer);
+    farm.appendChild(tile);
+  }
+}
+
+// Game logic
+function buySeed(type){
+  if (player.money >= 1){
+    player.money -= 1;
+    player.seeds[type]++;
+    updateUI();
+  }
+}
+function plantCrop(index){
+  const tile = document.querySelector(`.tile[data-index='${index}']`);
+  if (tile.classList.contains("growing-potato") || tile.classList.contains("growing-wheat") || tile.classList.contains("ready")) return;
+
+  if (player.seeds[selectedCrop] <= 0) return;
+
+  player.seeds[selectedCrop]--;
+  const cropClass = selectedCrop === "potato" ? "growing-potato" : "growing-wheat";
+  tile.classList.add(cropClass);
+  const growTime = 10;
+  crops.push({ type: selectedCrop, timeLeft: growTime, index });
+  updateUI();
+}
+function harvestCrop(tile, crop){
+  if (crop.type === "potato" && player.shed.potato < player.shed.capPotato) player.shed.potato++;
+  else if (crop.type === "wheat" && player.shed.wheat < player.shed.capWheat) player.shed.wheat++;
+  tile.classList.remove("ready","growing-potato","growing-wheat");
+  tile.style.backgroundColor = "";
+  tile.querySelector("span").textContent = "";
+  crops = crops.filter(c => c.index !== crop.index);
+  updateUI();
+}
+function sellAll(){
+  const total = (player.shed.potato + player.shed.wheat) * 2;
+  player.money += total;
+  player.shed.potato = 0;
+  player.shed.wheat = 0;
+  updateUI();
+  saveGame();
+}
+function upgradeFarm(){
+  if (player.money >= upgradeCosts.farm){
+    player.money -= upgradeCosts.farm;
+    player.upgrades.farmLevel++;
+    player.farmSize++;
+    upgradeCosts.farm *= 2;
+    renderFarm();
+    updateUI();
+  }
+}
+function upgradeShed(){
+  if (player.money >= upgradeCosts.shed){
+    player.money -= upgradeCosts.shed;
+    player.upgrades.shedLevel++;
+    player.shed.capPotato *= 2;
+    player.shed.capWheat *= 2;
+    upgradeCosts.shed *= 2;
+    updateUI();
+  }
+}
+
+// Growth timer
+setInterval(() => {
+  crops.forEach(crop => {
+    crop.timeLeft -= 1;
+    const tile = document.querySelector(`.tile[data-index='${crop.index}']`);
+    if (!tile) return;
+    const timer = tile.querySelector("span");
+    if (crop.timeLeft > 0){
+      timer.textContent = crop.timeLeft + "s";
+    } else {
+      timer.textContent = "";
+      tile.classList.remove("growing-potato","growing-wheat");
+      tile.classList.add("ready");
+      tile.onclick = () => harvestCrop(tile, crop);
+    }
+  });
+  saveGame();
+}, 1000);
+</script>
+</body>
+</html>
